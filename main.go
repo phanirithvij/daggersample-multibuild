@@ -16,8 +16,10 @@ func main() {
 
 func build(ctx context.Context) error {
 	// define build matrix
-	oses := []string{"linux", "darwin"}
-	arches := []string{"amd64", "arm64"}
+	oses := []string{"linux", "windows"}
+	//oses := []string{"linux", "darwin", "android", "windows"}
+	arches := []string{"amd64"}
+	//arches := []string{"amd64", "arm64"}
 
 	// initialize Dagger client
 	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stderr))
@@ -40,25 +42,24 @@ func build(ctx context.Context) error {
 
 	for _, goos := range oses {
 		for _, goarch := range arches {
-			// create a directory for each os and arch
 			path := fmt.Sprintf("build/%s/%s/", goos, goarch)
 
-			// set GOARCH and GOOS in the build environment
-			build := golang.WithEnvVariable("GOOS", goos)
-			build = build.WithEnvVariable("GOARCH", goarch)
+			build := golang.WithEnvVariable("GOOS", goos).WithEnvVariable("GOARCH", goarch).WithEnvVariable("CGO_ENABLED", "0")
 
-			// build application
 			build = build.WithExec([]string{
 				"go", "build",
-				"-buildmode=pie", "-trimpath", `-ldflags`, `-s -extldflags "-static"`,
+        // doesnt work
+				"-buildmode=pie", "-trimpath", `-ldflags="-s -extldflags '-static'"`,
+        // doesnt work
+				//"-buildmode=pie", "-trimpath", `-ldflags="-s -extldflags '-static'"`,
+        // WORKS 
+				//"-buildmode=pie", "-trimpath", "-ldflags", `-s -extldflags "-static"`,
 				"-o", path,
 			})
 
-			// get reference to build output directory in container
 			outputs = outputs.WithDirectory(path, build.Directory(path))
 		}
 	}
-	// write build artifacts to host
 	_, err = outputs.Export(ctx, ".")
 	if err != nil {
 		return err
